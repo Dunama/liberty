@@ -1,33 +1,24 @@
-<<<<<<< HEAD
-import { useEffect, useState } from "react";
-=======
-import { useState, useRef } from "react";
->>>>>>> 8473c912fa84b1ef5ddaeb3b99c6700e57aa9d3d
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  GraduationCap, 
-  Search, 
-  Folder, 
-  FileText, 
-  Image, 
-  Video, 
-  Download, 
+import {
+  GraduationCap,
+  Search,
+  Folder,
+  FileText,
+  Image,
+  Video,
+  Download,
   Eye,
   LogOut,
   ChevronRight,
   Home,
   Camera,
-  User
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-<<<<<<< HEAD
-import api from "@/lib/api";
-import { useAuth } from "@/hooks/useAuth";
-=======
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +27,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
->>>>>>> 8473c912fa84b1ef5ddaeb3b99c6700e57aa9d3d
+import api from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Material {
   id: string;
@@ -69,16 +61,12 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: string | null; name: string }[]>([
-    { id: null, name: "Home" }
+    { id: null, name: "Home" },
   ]);
   const [previewItem, setPreviewItem] = useState<Material | null>(null);
-<<<<<<< HEAD
   const [materials, setMaterials] = useState<Material[]>([]);
-=======
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [firstName] = useState("John"); // Mock user first name
   const fileInputRef = useRef<HTMLInputElement>(null);
->>>>>>> 8473c912fa84b1ef5ddaeb3b99c6700e57aa9d3d
   const navigate = useNavigate();
   const { session, logout } = useAuth();
 
@@ -119,14 +107,14 @@ const Dashboard = () => {
     load();
   }, [navigate, session]);
 
-  const currentMaterials = materials.filter(m => m.parentId === currentFolder);
-  const filteredMaterials = currentMaterials.filter(m => 
+  const currentMaterials = materials.filter((m) => m.parentId === currentFolder);
+  const filteredMaterials = currentMaterials.filter((m) =>
     m.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleFolderClick = (folder: Material) => {
     setCurrentFolder(folder.id);
-    setBreadcrumbs(prev => [...prev, { id: folder.id, name: folder.name }]);
+    setBreadcrumbs((prev) => [...prev, { id: folder.id, name: folder.name }]);
   };
 
   const handleBreadcrumbClick = (index: number) => {
@@ -148,12 +136,18 @@ const Dashboard = () => {
 
   const getIcon = (type: Material["type"]) => {
     switch (type) {
-      case "folder": return <Folder className="h-10 w-10 text-primary" />;
-      case "document": return <FileText className="h-10 w-10 text-destructive" />;
-      case "image": return <Image className="h-10 w-10 text-accent" />;
-      case "video": return <Video className="h-10 w-10 text-chart-3" />;
+      case "folder":
+        return <Folder className="h-10 w-10 text-primary" />;
+      case "document":
+        return <FileText className="h-10 w-10 text-destructive" />;
+      case "image":
+        return <Image className="h-10 w-10 text-accent" />;
+      case "video":
+        return <Video className="h-10 w-10 text-chart-3" />;
     }
   };
+
+  const userInitial = session?.user?.email?.charAt(0).toUpperCase() ?? "U";
 
   return (
     <div className="min-h-screen bg-background">
@@ -164,7 +158,7 @@ const Dashboard = () => {
             <GraduationCap className="h-8 w-8 text-primary" />
             <span className="text-xl font-bold">Liberty</span>
           </Link>
-          
+
           <div className="flex items-center gap-4">
             <div className="relative hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -175,30 +169,16 @@ const Dashboard = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-<<<<<<< HEAD
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                logout();
-                navigate("/login");
-              }}
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
-=======
-            
+
             {/* Profile Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2 px-2">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={profileImage || undefined} />
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {firstName.charAt(0).toUpperCase()}
-                    </AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary">{userInitial}</AvatarFallback>
                   </Avatar>
-                  <span className="hidden sm:inline font-medium">{firstName}</span>
+                  <span className="hidden sm:inline font-medium">{session?.user?.email}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -208,13 +188,18 @@ const Dashboard = () => {
                   <Camera className="h-4 w-4 mr-2" />
                   Change Photo
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/login")}>
+                <DropdownMenuItem
+                  onClick={() => {
+                    logout();
+                    navigate("/login");
+                  }}
+                >
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            
+
             <input
               ref={fileInputRef}
               type="file"
@@ -222,7 +207,6 @@ const Dashboard = () => {
               onChange={handleProfileImageChange}
               className="hidden"
             />
->>>>>>> 8473c912fa84b1ef5ddaeb3b99c6700e57aa9d3d
           </div>
         </div>
       </header>
@@ -249,8 +233,8 @@ const Dashboard = () => {
               <button
                 onClick={() => handleBreadcrumbClick(index)}
                 className={`flex items-center gap-1 px-2 py-1 rounded transition-colors ${
-                  index === breadcrumbs.length - 1 
-                    ? "text-foreground font-medium" 
+                  index === breadcrumbs.length - 1
+                    ? "text-foreground font-medium"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -264,19 +248,19 @@ const Dashboard = () => {
         {/* Materials Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredMaterials.map((material) => (
-            <Card 
+            <Card
               key={material.id}
               className="cursor-pointer hover:shadow-lg transition-all hover:border-primary/50 group"
-              onClick={() => material.type === "folder" ? handleFolderClick(material) : setPreviewItem(material)}
+              onClick={() =>
+                material.type === "folder" ? handleFolderClick(material) : setPreviewItem(material)
+              }
             >
               <CardContent className="p-4 flex flex-col items-center text-center">
                 <div className="mb-3 p-3 rounded-lg bg-secondary group-hover:bg-primary/10 transition-colors">
                   {getIcon(material.type)}
                 </div>
                 <h3 className="font-medium text-sm line-clamp-2 mb-1">{material.name}</h3>
-                {material.size && (
-                  <p className="text-xs text-muted-foreground">{material.size}</p>
-                )}
+                {material.size && <p className="text-xs text-muted-foreground">{material.size}</p>}
               </CardContent>
             </Card>
           ))}
@@ -304,15 +288,9 @@ const Dashboard = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="aspect-video bg-secondary rounded-lg flex items-center justify-center">
-              {previewItem?.type === "image" && (
-                <Image className="h-20 w-20 text-muted-foreground" />
-              )}
-              {previewItem?.type === "video" && (
-                <Video className="h-20 w-20 text-muted-foreground" />
-              )}
-              {previewItem?.type === "document" && (
-                <FileText className="h-20 w-20 text-muted-foreground" />
-              )}
+              {previewItem?.type === "image" && <Image className="h-20 w-20 text-muted-foreground" />}
+              {previewItem?.type === "video" && <Video className="h-20 w-20 text-muted-foreground" />}
+              {previewItem?.type === "document" && <FileText className="h-20 w-20 text-muted-foreground" />}
             </div>
             <div className="flex justify-between items-center text-sm text-muted-foreground">
               <span>Size: {previewItem?.size}</span>
