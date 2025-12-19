@@ -47,22 +47,12 @@ async function ensureDefaultAdmin() {
 const app = express();
 app.use(express.json());
 
-const allowedOrigins = (process.env.CORS_ORIGIN || "")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
-
-if (!allowedOrigins.length) {
-  allowedOrigins.push("http://localhost:5173", "http://localhost:3000");
-}
+// In production (Vercel), allow all origins. In dev, use specific origins.
+const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL;
 
 app.use(
   cors({
-    origin(origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error(`CORS blocked for origin: ${origin}`));
-    },
+    origin: isProduction ? true : ["http://localhost:5173", "http://localhost:3000", "http://localhost:8080"],
     credentials: true,
   })
 );
