@@ -7,38 +7,76 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GraduationCap, Mail, Lock, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import api from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+
+function getErrorMessage(err: unknown, fallback: string) {
+  if (err instanceof Error && typeof err.message === "string" && err.message) return err.message;
+
+  if (typeof err === "object" && err !== null && "response" in err) {
+    const response = (err as { response?: { data?: unknown } }).response;
+    const data = response?.data;
+    if (typeof data === "object" && data !== null) {
+      const maybe = data as { error?: unknown; message?: unknown };
+      if (typeof maybe.error === "string" && maybe.error) return maybe.error;
+      if (typeof maybe.message === "string" && maybe.message) return maybe.message;
+    }
+  }
+
+  return fallback;
+}
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { setSession } = useAuth();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate login - replace with actual auth
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
-      });
+
+    try {
+      const response = await api.post("/auth/login", { email: loginEmail, password: loginPassword });
+      setSession(response.data);
+      toast({ title: "Welcome back!", description: "You have successfully logged in." });
       navigate("/dashboard");
-    }, 1000);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: getErrorMessage(err, "Login failed."),
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Account created!",
-        description: "Please check your email for verification.",
+
+    try {
+      await api.post("/auth/signup", {
+        username: signupName,
+        email: signupEmail,
+        password: signupPassword,
       });
-    }, 1000);
+      toast({ title: "Account created!", description: "You can now log in with your new account." });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: getErrorMessage(err, "Signup failed."),
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -72,6 +110,8 @@ const Login = () => {
                         type="email"
                         placeholder="student@university.edu"
                         className="pl-10"
+                        value={loginEmail}
+                        onChange={(e) => setLoginEmail(e.target.value)}
                         required
                       />
                     </div>
@@ -85,6 +125,8 @@ const Login = () => {
                         type="password"
                         placeholder="••••••••"
                         className="pl-10"
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
                         required
                       />
                     </div>
@@ -106,6 +148,8 @@ const Login = () => {
                         type="text"
                         placeholder="John Doe"
                         className="pl-10"
+                        value={signupName}
+                        onChange={(e) => setSignupName(e.target.value)}
                         required
                       />
                     </div>
@@ -119,6 +163,8 @@ const Login = () => {
                         type="email"
                         placeholder="student@university.edu"
                         className="pl-10"
+                        value={signupEmail}
+                        onChange={(e) => setSignupEmail(e.target.value)}
                         required
                       />
                     </div>
@@ -132,6 +178,8 @@ const Login = () => {
                         type="password"
                         placeholder="••••••••"
                         className="pl-10"
+                        value={signupPassword}
+                        onChange={(e) => setSignupPassword(e.target.value)}
                         required
                       />
                     </div>

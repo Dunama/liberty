@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,8 @@ import {
   Home
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import api from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Material {
   id: string;
@@ -27,17 +29,23 @@ interface Material {
   parentId: string | null;
 }
 
-const mockMaterials: Material[] = [
-  { id: "1", name: "Mathematics", type: "folder", parentId: null },
-  { id: "2", name: "Physics", type: "folder", parentId: null },
-  { id: "3", name: "Chemistry", type: "folder", parentId: null },
-  { id: "4", name: "Biology", type: "folder", parentId: null },
-  { id: "5", name: "Algebra Notes.pdf", type: "document", size: "2.4 MB", uploadedAt: "Dec 1, 2024", parentId: "1" },
-  { id: "6", name: "Calculus Video.mp4", type: "video", size: "45 MB", uploadedAt: "Nov 28, 2024", parentId: "1" },
-  { id: "7", name: "Graph Examples.png", type: "image", size: "1.2 MB", uploadedAt: "Nov 25, 2024", parentId: "1" },
-  { id: "8", name: "Quantum Mechanics.pdf", type: "document", size: "5.1 MB", uploadedAt: "Dec 2, 2024", parentId: "2" },
-  { id: "9", name: "Lab Experiments.mp4", type: "video", size: "120 MB", uploadedAt: "Nov 30, 2024", parentId: "2" },
-];
+type FolderDto = { id: string; name: string; created_at?: string };
+type FileDto = {
+  id: string;
+  name: string;
+  folder_id?: string | null;
+  mime_type?: string | null;
+  size_bytes?: number | null;
+  created_at?: string;
+  url?: string;
+};
+
+function materialTypeFromMime(mime?: string | null): Material["type"] {
+  if (!mime) return "document";
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  return "document";
+}
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -46,9 +54,48 @@ const Dashboard = () => {
     { id: null, name: "Home" }
   ]);
   const [previewItem, setPreviewItem] = useState<Material | null>(null);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const navigate = useNavigate();
+  const { session, logout } = useAuth();
 
-  const currentMaterials = mockMaterials.filter(m => m.parentId === currentFolder);
+  useEffect(() => {
+    if (!session) {
+      navigate("/login");
+      return;
+    }
+
+    const load = async () => {
+      try {
+        const [foldersRes, filesRes] = await Promise.all([api.get("/folders"), api.get("/files")]);
+
+        const folders: Material[] = (foldersRes.data as FolderDto[]).map((f) => ({
+          id: f.id,
+          name: f.name,
+          type: "folder",
+          parentId: null,
+          uploadedAt: f.created_at,
+        }));
+
+        const files: Material[] = (filesRes.data as FileDto[]).map((f) => ({
+          id: f.id,
+          name: f.name,
+          type: materialTypeFromMime(f.mime_type),
+          parentId: f.folder_id ?? null,
+          uploadedAt: f.created_at,
+          size: typeof f.size_bytes === "number" ? `${Math.max(0, f.size_bytes)} bytes` : undefined,
+        }));
+
+        setMaterials([...folders, ...files]);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+      }
+    };
+
+    load();
+  }, [navigate, session]);
+
+  const currentMaterials = materials.filter(m => m.parentId === currentFolder);
   const filteredMaterials = currentMaterials.filter(m => 
     m.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -93,7 +140,14 @@ const Dashboard = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button variant="ghost" size="icon" onClick={() => navigate("/login")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+            >
               <LogOut className="h-5 w-5" />
             </Button>
           </div>

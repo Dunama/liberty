@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,8 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import api from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Material {
   id: string;
@@ -37,6 +39,7 @@ interface Material {
   type: "folder" | "document" | "image" | "video";
   size?: string;
   uploadedAt?: string;
+  parentId?: string | null;
 }
 
 interface User {
@@ -49,66 +52,176 @@ interface User {
   joinedAt: string;
 }
 
-const mockMaterials: Material[] = [
-  { id: "1", name: "Mathematics", type: "folder" },
-  { id: "2", name: "Physics", type: "folder" },
-  { id: "3", name: "Chemistry", type: "folder" },
-  { id: "4", name: "Welcome Guide.pdf", type: "document", size: "1.2 MB", uploadedAt: "Dec 1, 2024" },
-];
+type FolderDto = { id: string; name: string; created_at?: string };
+type FileDto = {
+  id: string;
+  name: string;
+  folder_id?: string | null;
+  mime_type?: string | null;
+  size_bytes?: number | null;
+  created_at?: string;
+};
 
-const mockUsers: User[] = [
-  { id: "1", name: "Alice Johnson", email: "alice@university.edu", avatar: "", isAdmin: false, isActive: true, joinedAt: "Nov 15, 2024" },
-  { id: "2", name: "Bob Smith", email: "bob@university.edu", avatar: "", isAdmin: false, isActive: true, joinedAt: "Nov 20, 2024" },
-  { id: "3", name: "Carol Williams", email: "carol@university.edu", avatar: "", isAdmin: true, isActive: true, joinedAt: "Oct 10, 2024" },
-  { id: "4", name: "David Brown", email: "david@university.edu", avatar: "", isAdmin: false, isActive: false, joinedAt: "Nov 25, 2024" },
-  { id: "5", name: "Eva Martinez", email: "eva@university.edu", avatar: "", isAdmin: false, isActive: true, joinedAt: "Dec 1, 2024" },
-];
+type UserDto = {
+  id: string;
+  email: string;
+  role: "admin" | "user";
+  status: "active" | "pending" | "blocked";
+  created_at?: string;
+};
+
+function materialTypeFromMime(mime?: string | null): Material["type"] {
+  if (!mime) return "document";
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  return "document";
+}
+
+function safeJoinedAt(dateString?: string) {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString();
+}
+
+function nameFromEmail(email: string) {
+  const local = (email || "").split("@")[0] || email;
+  return local
+    .replace(/[._-]+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0]?.toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 const Admin = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [materials, setMaterials] = useState(mockMaterials);
-  const [users, setUsers] = useState(mockUsers);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { session, logout } = useAuth();
 
-  const handleCreateFolder = () => {
-    if (!newFolderName.trim()) return;
-    
-    const newFolder: Material = {
-      id: Date.now().toString(),
-      name: newFolderName,
-      type: "folder",
+  useEffect(() => {
+    if (!session || session.user.role !== "admin") {
+      navigate("/admin/login");
+      return;
+    }
+
+    const load = async () => {
+      try {
+        const [foldersRes, filesRes, usersRes] = await Promise.all([
+          api.get("/folders"),
+          api.get("/files"),
+          api.get("/users"),
+        ]);
+
+        const folders: Material[] = (foldersRes.data as FolderDto[]).map((f) => ({
+          id: f.id,
+          name: f.name,
+          type: "folder",
+          uploadedAt: f.created_at,
+          parentId: null,
+        }));
+
+        const files: Material[] = (filesRes.data as FileDto[]).map((f) => ({
+          id: f.id,
+          name: f.name,
+          type: materialTypeFromMime(f.mime_type),
+          size: typeof f.size_bytes === "number" ? `${Math.max(0, f.size_bytes)} bytes` : undefined,
+          uploadedAt: f.created_at,
+          parentId: f.folder_id ?? null,
+        }));
+
+        const mappedUsers: User[] = (usersRes.data as UserDto[]).map((u) => ({
+          id: u.id,
+          email: u.email,
+          name: nameFromEmail(u.email),
+          avatar: "",
+          isAdmin: u.role === "admin",
+          isActive: u.status === "active",
+          joinedAt: safeJoinedAt(u.created_at),
+        }));
+
+        setMaterials([...folders, ...files]);
+        setUsers(mappedUsers);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+      }
     };
-    setMaterials([...materials, newFolder]);
-    setNewFolderName("");
-    setIsCreateFolderOpen(false);
-    toast({ title: "Folder created", description: `"${newFolderName}" has been created.` });
+
+    load();
+  }, [navigate, session]);
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    try {
+      const res = await api.post("/folders", { name: newFolderName.trim() });
+      const f = res.data as FolderDto;
+      const newFolder: Material = {
+        id: f.id,
+        name: f.name,
+        type: "folder",
+        uploadedAt: f.created_at,
+        parentId: null,
+      };
+      setMaterials([newFolder, ...materials]);
+      const createdName = newFolderName;
+      setNewFolderName("");
+      setIsCreateFolderOpen(false);
+      toast({ title: "Folder created", description: `"${createdName}" has been created.` });
+    } catch {
+      toast({ title: "Error", description: "Failed to create folder.", variant: "destructive" });
+    }
   };
 
-  const handleDeleteMaterial = (id: string) => {
-    setMaterials(materials.filter(m => m.id !== id));
-    toast({ title: "Deleted", description: "Material has been removed." });
+  const handleDeleteMaterial = async (id: string) => {
+    const material = materials.find((m) => m.id === id);
+    if (!material) return;
+    try {
+      if (material.type === "folder") {
+        await api.delete(`/folders/${id}`);
+      } else {
+        await api.delete(`/files/${id}`);
+      }
+      setMaterials(materials.filter((m) => m.id !== id));
+      toast({ title: "Deleted", description: "Material has been removed." });
+    } catch {
+      toast({ title: "Error", description: "Failed to delete material.", variant: "destructive" });
+    }
   };
 
-  const handleToggleAdmin = (userId: string) => {
-    setUsers(users.map(u => 
-      u.id === userId ? { ...u, isAdmin: !u.isAdmin } : u
-    ));
-    toast({ title: "Role updated", description: "User role has been changed." });
+  const handleToggleAdmin = async (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+    const nextRole = user.isAdmin ? "user" : "admin";
+    try {
+      await api.patch(`/users/${userId}`, { role: nextRole });
+      setUsers(users.map((u) => (u.id === userId ? { ...u, isAdmin: !u.isAdmin } : u)));
+      toast({ title: "Role updated", description: "User role has been changed." });
+    } catch {
+      toast({ title: "Error", description: "Failed to update role.", variant: "destructive" });
+    }
   };
 
-  const handleToggleActive = (userId: string) => {
-    setUsers(users.map(u => 
-      u.id === userId ? { ...u, isActive: !u.isActive } : u
-    ));
-    const user = users.find(u => u.id === userId);
-    toast({ 
-      title: user?.isActive ? "Account deactivated" : "Account activated",
-      description: `${user?.name}'s account has been ${user?.isActive ? "deactivated" : "activated"}.`
-    });
+  const handleToggleActive = async (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+    const nextStatus = user.isActive ? "blocked" : "active";
+    try {
+      await api.patch(`/users/${userId}`, { status: nextStatus });
+      setUsers(users.map((u) => (u.id === userId ? { ...u, isActive: !u.isActive } : u)));
+      toast({
+        title: user.isActive ? "Account deactivated" : "Account activated",
+        description: `${user.name}'s account has been ${user.isActive ? "deactivated" : "activated"}.`,
+      });
+    } catch {
+      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    }
   };
 
   const getIcon = (type: Material["type"]) => {
@@ -139,7 +252,15 @@ const Admin = () => {
             <span className="text-xl font-bold">Liberty Admin</span>
           </Link>
           
-          <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10" onClick={() => navigate("/admin/login")}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-primary-foreground hover:bg-primary-foreground/10"
+            onClick={() => {
+              logout();
+              navigate("/admin/login");
+            }}
+          >
             <LogOut className="h-5 w-5" />
           </Button>
         </div>
