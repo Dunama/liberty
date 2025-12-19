@@ -140,6 +140,17 @@ app.patch("/api/users/:id", requireAuth, requireAdmin, async (req, res) => {
   const { role, status } = req.body || {};
   if (!role && !status) return res.status(400).json({ error: "Please specify what you want to update (role or account status)." });
 
+  // Protect the default admin - they can never be demoted or deactivated
+  const targetUser = await pool.query("SELECT email FROM users WHERE id = $1", [id]);
+  if (targetUser.rows[0]?.email?.toLowerCase() === DEFAULT_ADMIN_EMAIL.toLowerCase()) {
+    if (role && role !== "admin") {
+      return res.status(403).json({ error: "The primary admin account cannot be demoted. There must always be at least one admin." });
+    }
+    if (status && status !== "active") {
+      return res.status(403).json({ error: "The primary admin account cannot be deactivated. There must always be at least one active admin." });
+    }
+  }
+
   const fields = [];
   const values = [id];
   if (role) {

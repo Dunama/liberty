@@ -37,6 +37,7 @@ interface Material {
   size?: string;
   uploadedAt?: string;
   parentId: string | null;
+  url?: string;
 }
 
 type FolderDto = { id: string; name: string; created_at?: string };
@@ -65,7 +66,11 @@ const Dashboard = () => {
   ]);
   const [previewItem, setPreviewItem] = useState<Material | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(() => {
+    // Load saved profile image from localStorage on initial render
+    const saved = localStorage.getItem("profileImage");
+    return saved || null;
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { session, logout } = useAuth();
@@ -95,6 +100,7 @@ const Dashboard = () => {
           parentId: f.folder_id ?? null,
           uploadedAt: f.created_at,
           size: typeof f.size_bytes === "number" ? `${Math.max(0, f.size_bytes)} bytes` : undefined,
+          url: f.url,
         }));
 
         setMaterials([...folders, ...files]);
@@ -128,7 +134,10 @@ const Dashboard = () => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfileImage(reader.result as string);
+        const imageData = reader.result as string;
+        setProfileImage(imageData);
+        // Persist to localStorage so it survives navigation
+        localStorage.setItem("profileImage", imageData);
       };
       reader.readAsDataURL(file);
     }
@@ -279,7 +288,7 @@ const Dashboard = () => {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewItem} onOpenChange={() => setPreviewItem(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {previewItem && getIcon(previewItem.type)}
@@ -287,21 +296,66 @@ const Dashboard = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="aspect-video bg-secondary rounded-lg flex items-center justify-center">
-              {previewItem?.type === "image" && <Image className="h-20 w-20 text-muted-foreground" />}
-              {previewItem?.type === "video" && <Video className="h-20 w-20 text-muted-foreground" />}
-              {previewItem?.type === "document" && <FileText className="h-20 w-20 text-muted-foreground" />}
+            {/* Actual preview content */}
+            <div className="aspect-video bg-secondary rounded-lg flex items-center justify-center overflow-hidden">
+              {previewItem?.type === "image" && previewItem?.url ? (
+                <img 
+                  src={previewItem.url} 
+                  alt={previewItem.name} 
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : previewItem?.type === "video" && previewItem?.url ? (
+                <video 
+                  src={previewItem.url} 
+                  controls 
+                  className="max-w-full max-h-full"
+                />
+              ) : previewItem?.type === "document" && previewItem?.url?.startsWith("data:application/pdf") ? (
+                <iframe 
+                  src={previewItem.url} 
+                  className="w-full h-full min-h-[300px]" 
+                  title={previewItem.name}
+                />
+              ) : (
+                <div className="text-center p-8">
+                  <FileText className="h-20 w-20 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-sm text-muted-foreground">Preview not available for this file type</p>
+                </div>
+              )}
             </div>
             <div className="flex justify-between items-center text-sm text-muted-foreground">
-              <span>Size: {previewItem?.size}</span>
-              <span>Uploaded: {previewItem?.uploadedAt}</span>
+              <span>Size: {previewItem?.size || "Unknown"}</span>
+              <span>Uploaded: {previewItem?.uploadedAt ? new Date(previewItem.uploadedAt).toLocaleDateString() : "Unknown"}</span>
             </div>
             <div className="flex gap-3">
-              <Button className="flex-1" variant="outline">
-                <Eye className="h-4 w-4 mr-2" />
-                Preview
-              </Button>
-              <Button className="flex-1">
+              {previewItem?.url && (
+                <Button 
+                  className="flex-1" 
+                  variant="outline"
+                  onClick={() => {
+                    if (previewItem?.url) {
+                      window.open(previewItem.url, "_blank");
+                    }
+                  }}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Open in New Tab
+                </Button>
+              )}
+              <Button 
+                className="flex-1"
+                onClick={() => {
+                  if (previewItem?.url) {
+                    const link = document.createElement("a");
+                    link.href = previewItem.url;
+                    link.download = previewItem.name;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }
+                }}
+                disabled={!previewItem?.url}
+              >
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
