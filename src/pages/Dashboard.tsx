@@ -1,8 +1,13 @@
+<<<<<<< HEAD
 import { useEffect, useState } from "react";
+=======
+import { useState, useRef } from "react";
+>>>>>>> 8473c912fa84b1ef5ddaeb3b99c6700e57aa9d3d
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   GraduationCap, 
   Search, 
@@ -14,11 +19,24 @@ import {
   Eye,
   LogOut,
   ChevronRight,
-  Home
+  Home,
+  Camera,
+  User
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+<<<<<<< HEAD
 import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+=======
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+>>>>>>> 8473c912fa84b1ef5ddaeb3b99c6700e57aa9d3d
 
 interface Material {
   id: string;
@@ -54,7 +72,13 @@ const Dashboard = () => {
     { id: null, name: "Home" }
   ]);
   const [previewItem, setPreviewItem] = useState<Material | null>(null);
+<<<<<<< HEAD
   const [materials, setMaterials] = useState<Material[]>([]);
+=======
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [firstName] = useState("John"); // Mock user first name
+  const fileInputRef = useRef<HTMLInputElement>(null);
+>>>>>>> 8473c912fa84b1ef5ddaeb3b99c6700e57aa9d3d
   const navigate = useNavigate();
   const { session, logout } = useAuth();
 
@@ -111,6 +135,17 @@ const Dashboard = () => {
     setCurrentFolder(newBreadcrumbs[newBreadcrumbs.length - 1].id);
   };
 
+  const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const getIcon = (type: Material["type"]) => {
     switch (type) {
       case "folder": return <Folder className="h-10 w-10 text-primary" />;
@@ -140,6 +175,7 @@ const Dashboard = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+<<<<<<< HEAD
             <Button
               variant="ghost"
               size="icon"
@@ -150,6 +186,43 @@ const Dashboard = () => {
             >
               <LogOut className="h-5 w-5" />
             </Button>
+=======
+            
+            {/* Profile Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2 px-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={profileImage || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {firstName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden sm:inline font-medium">{firstName}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                  <Camera className="h-4 w-4 mr-2" />
+                  Change Photo
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/login")}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleProfileImageChange}
+              className="hidden"
+            />
+>>>>>>> 8473c912fa84b1ef5ddaeb3b99c6700e57aa9d3d
           </div>
         </div>
       </header>
