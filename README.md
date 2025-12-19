@@ -1,73 +1,88 @@
-# Welcome to your Lovable project
+# Liberty Docs Portal
 
-## Project info
+> *"Education is the passport to the future, for tomorrow belongs to those who prepare for it today."*
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## About Liberty
 
-## How can I edit this code?
+**Liberty** was created with a simple but powerful mission: to make educational content accessible, organized, and available for future use.
 
-There are several ways of editing your application.
+Education plays a vital role in our lives. It shapes careers, opens doors, and empowers individuals to reach their full potential. Yet valuable learning materials—lecture notes, study guides, videos, research papers—are often scattered, lost, or difficult to retrieve when needed most.
 
-**Use Lovable**
+Liberty solves this problem by providing a centralized platform where educational content can be stored, organized into folders, and accessed anytime. Whether you're a student archiving lecture materials, an educator sharing resources, or an institution preserving knowledge for future generations, Liberty is built for you.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Key Features
 
-Changes made via Lovable will be committed automatically to this repo.
+- **User Authentication** – Secure signup/login with JWT-based sessions
+- **Role-Based Access** – Users and Admins with distinct permissions
+- **Folder Organization** – Create folders to categorize content
+- **File Storage** – Upload and manage documents, images, videos, and PDFs
+- **Admin Panel** – Manage users, approve admin requests, and control content
+- **Request Admin Access** – Users can apply to become administrators
+- **Real-Time Data** – Content stored in PostgreSQL (Neon) for reliable persistence
 
-**Use your preferred IDE**
+## Tech Stack
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+| Layer       | Technology                              |
+|-------------|-----------------------------------------|
+| Frontend    | React, TypeScript, Vite, Tailwind CSS, shadcn/ui |
+| Backend     | Node.js, Express                        |
+| Database    | PostgreSQL (Neon)                       |
+| Auth        | JWT, bcryptjs                           |
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Getting Started
 
-Follow these steps:
+### Prerequisites
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- Node.js 18+ and npm
+- A [Neon](https://neon.tech) PostgreSQL database (or any Postgres instance)
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Installation
 
-# Step 3: Install the necessary dependencies.
-npm i
+```bash
+# Clone the repository
+git clone https://github.com/Dunama/liberty-docs-portal.git
+cd liberty-docs-portal
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Install dependencies
+npm install
+```
+
+### Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+DATABASE_URL=postgres://<user>:<password>@<host>/<database>?sslmode=require
+JWT_SECRET=your_jwt_secret_here
+VITE_API_URL=http://localhost:4000
+PORT=4000
+```
+
+### Database Setup
+
+Run the SQL in `server/schema.sql` in your Neon SQL editor (or psql) to create tables and seed the default admin.
+
+### Running the Application
+
+```bash
+# Terminal 1 – Start the backend API
+npm run server
+
+# Terminal 2 – Start the frontend dev server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+- Frontend: http://localhost:8080 (or the port Vite assigns)
+- Backend API: http://localhost:4000
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
 
-**Use GitHub Codespaces**
+## Contributing
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Contributions are welcome! Feel free to open issues or submit pull requests to improve Liberty.
 
-## What technologies are used for this project?
+## License
 
-This project is built with:
+This project is open source and available under the [MIT License](LICENSE).
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
