@@ -153,13 +153,13 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <GraduationCap className="h-8 w-8 text-primary" />
-            <span className="text-xl font-bold">Liberty</span>
+            <GraduationCap className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
+            <span className="text-lg sm:text-xl font-bold">Liberty</span>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <div className="relative hidden md:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -178,7 +178,7 @@ const Dashboard = () => {
                     <AvatarImage src={profileImage || undefined} />
                     <AvatarFallback className="bg-primary/10 text-primary">{userInitial}</AvatarFallback>
                   </Avatar>
-                  <span className="hidden sm:inline font-medium">{session?.user?.email}</span>
+                  <span className="hidden sm:inline font-medium text-sm truncate max-w-[150px]">{session?.user?.email}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">

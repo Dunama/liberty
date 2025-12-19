@@ -45,7 +45,10 @@ async function ensureDefaultAdmin() {
 }
 
 const app = express();
-app.use(express.json());
+// Default JSON limit is ~100kb, which is too small for even modest base64 uploads.
+// Base64 adds ~33% overhead; 10MB raw can become ~13.3MB in JSON.
+// Note: Vercel/serverless may still enforce lower request limits; large files should go to object storage.
+app.use(express.json({ limit: "16mb" }));
 
 // In production (Vercel), allow all origins. In dev, use specific origins.
 const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL;
@@ -64,29 +67,31 @@ function signToken(user) {
 async function requireAuth(req, res, next) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token) return res.status(401).json({ error: "Unauthorized" });
+  if (!token) return res.status(401).json({ error: "Please log in to continue. Your session may have expired." });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     const { rows } = await pool.query("SELECT id, email, role, status FROM users WHERE id = $1", [decoded.id]);
     const user = rows[0];
-    if (!user || user.status !== "active") return res.status(403).json({ error: "Inactive or missing user" });
+    if (!user) return res.status(403).json({ error: "Your account was not found. Please contact support if this persists." });
+    if (user.status !== "active") return res.status(403).json({ error: "Your account is not active. Please contact an administrator for assistance." });
     req.user = user;
     next();
   } catch {
-    res.status(401).json({ error: "Unauthorized" });
+    res.status(401).json({ error: "Your session has expired. Please log in again." });
   }
 }
 
 function requireAdmin(req, res, next) {
-  if (req.user?.role !== "admin") return res.status(403).json({ error: "Admin only" });
+  if (req.user?.role !== "admin") return res.status(403).json({ error: "You do not have permission to perform this action. Admin access is required." });
   next();
 }
 
 // Auth
 app.post("/api/auth/signup", async (req, res) => {
   let { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+  if (!email || !password) return res.status(400).json({ error: "Please enter both your email address and a password to create an account." });
   email = String(email).trim().toLowerCase();
+  if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters long for security." });
   const hash = await bcrypt.hash(password, 10);
   try {
     const { rows } = await pool.query(
@@ -97,23 +102,31 @@ app.post("/api/auth/signup", async (req, res) => {
     const token = signToken(user);
     res.json({ token, user });
   } catch (err) {
-    if (err.code === "23505") return res.status(409).json({ error: "Email already exists" });
-    res.status(500).json({ error: "Internal error" });
+    if (err.code === "23505") return res.status(409).json({ error: "An account with this email already exists. Try logging in instead." });
+    console.error("Signup error:", err);
+    res.status(500).json({ error: "Something went wrong while creating your account. Please try again later." });
   }
 });
 
 app.post("/api/auth/login", async (req, res) => {
   let { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+  if (!email || !password) return res.status(400).json({ error: "Please enter your email and password to log in." });
   email = String(email).trim().toLowerCase();
-  const { rows } = await pool.query("SELECT id, email, role, status, password_hash FROM users WHERE email = $1", [email]);
-  const user = rows[0];
-  if (!user) return res.status(401).json({ error: "Invalid credentials" });
-  if (user.status !== "active") return res.status(403).json({ error: "Account not active" });
-  const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: "Invalid credentials" });
-  const token = signToken(user);
-  res.json({ token, user: { id: user.id, email: user.email, role: user.role, status: user.status } });
+  try {
+    const { rows } = await pool.query("SELECT id, email, role, status, password_hash FROM users WHERE email = $1", [email]);
+    const user = rows[0];
+    if (!user) return res.status(401).json({ error: "No account found with this email. Please check your email or create an account." });
+    if (user.status === "pending") return res.status(403).json({ error: "Your account is awaiting approval. Please wait for an administrator to activate it." });
+    if (user.status === "blocked") return res.status(403).json({ error: "Your account has been deactivated. Please contact an administrator for assistance." });
+    if (user.status !== "active") return res.status(403).json({ error: "Your account is not active. Please contact support." });
+    const ok = await bcrypt.compare(password, user.password_hash);
+    if (!ok) return res.status(401).json({ error: "Incorrect password. Please check your password and try again." });
+    const token = signToken(user);
+    res.json({ token, user: { id: user.id, email: user.email, role: user.role, status: user.status } });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Something went wrong. Please try again later." });
+  }
 });
 
 // Users
@@ -125,7 +138,7 @@ app.get("/api/users", requireAuth, requireAdmin, async (_req, res) => {
 app.patch("/api/users/:id", requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { role, status } = req.body || {};
-  if (!role && !status) return res.status(400).json({ error: "role or status required" });
+  if (!role && !status) return res.status(400).json({ error: "Please specify what you want to update (role or account status)." });
 
   const fields = [];
   const values = [id];
@@ -145,14 +158,14 @@ app.patch("/api/users/:id", requireAuth, requireAdmin, async (req, res) => {
     values
   );
 
-  if (!rows[0]) return res.status(404).json({ error: "User not found" });
+  if (!rows[0]) return res.status(404).json({ error: "This user could not be found. They may have been deleted." });
   res.json(rows[0]);
 });
 
 // Folders
 app.post("/api/folders", requireAuth, requireAdmin, async (req, res) => {
   const { name } = req.body;
-  if (!name) return res.status(400).json({ error: "Name required" });
+  if (!name) return res.status(400).json({ error: "Please enter a name for the folder." });
   const { rows } = await pool.query(
     "INSERT INTO folders (name, created_by) VALUES ($1, $2) RETURNING *",
     [name, req.user.id]
@@ -167,15 +180,20 @@ app.get("/api/folders", requireAuth, async (_req, res) => {
 
 app.delete("/api/folders/:id", requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { rowCount } = await pool.query("DELETE FROM folders WHERE id = $1", [id]);
-  if (!rowCount) return res.status(404).json({ error: "Folder not found" });
-  res.json({ ok: true });
+  try {
+    const { rowCount } = await pool.query("DELETE FROM folders WHERE id = $1", [id]);
+    if (!rowCount) return res.status(404).json({ error: "This folder could not be found. It may have already been deleted." });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Folder delete error:", err);
+    res.status(500).json({ error: "Failed to delete the folder. Please try again." });
+  }
 });
 
 // Files
 app.post("/api/files", requireAuth, requireAdmin, async (req, res) => {
   const { name, url, mime_type, size_bytes, folder_id } = req.body;
-  if (!name || !url) return res.status(400).json({ error: "Name and url required" });
+  if (!name || !url) return res.status(400).json({ error: "File upload failed. Please select a valid file and try again." });
   const { rows } = await pool.query(
     `INSERT INTO files (name, url, mime_type, size_bytes, folder_id, uploaded_by)
      VALUES ($1, $2, $3, $4, $5, $6)
@@ -199,9 +217,14 @@ app.get("/api/files", requireAuth, async (req, res) => {
 
 app.delete("/api/files/:id", requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { rowCount } = await pool.query("DELETE FROM files WHERE id = $1", [id]);
-  if (!rowCount) return res.status(404).json({ error: "File not found" });
-  res.json({ ok: true });
+  try {
+    const { rowCount } = await pool.query("DELETE FROM files WHERE id = $1", [id]);
+    if (!rowCount) return res.status(404).json({ error: "This file could not be found. It may have already been deleted." });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("File delete error:", err);
+    res.status(500).json({ error: "Failed to delete the file. Please try again." });
+  }
 });
 
 // Root
