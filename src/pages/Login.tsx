@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GraduationCap, Mail, Lock, User } from "lucide-react";
+import { GraduationCap, Mail, Lock, User, AlertCircle, XCircle, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 function getErrorMessage(err: unknown, fallback: string) {
   if (err instanceof Error && typeof err.message === "string" && err.message) return err.message;
@@ -26,6 +27,22 @@ function getErrorMessage(err: unknown, fallback: string) {
   return fallback;
 }
 
+// Password strength checker
+function getPasswordStrength(password: string): { level: "weak" | "medium" | "strong"; label: string; color: string; width: string } {
+  if (!password) return { level: "weak", label: "", color: "bg-muted", width: "w-0" };
+  
+  let score = 0;
+  if (password.length >= 6) score++;
+  if (password.length >= 8) score++;
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+  if (/\d/.test(password)) score++;
+  if (/[^a-zA-Z0-9]/.test(password)) score++;
+  
+  if (score <= 2) return { level: "weak", label: "Weak", color: "bg-red-500", width: "w-1/3" };
+  if (score <= 3) return { level: "medium", label: "Medium", color: "bg-yellow-500", width: "w-2/3" };
+  return { level: "strong", label: "Strong", color: "bg-green-500", width: "w-full" };
+}
+
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
@@ -33,13 +50,20 @@ const Login = () => {
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [signupError, setSignupError] = useState<string | null>(null);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { setSession } = useAuth();
+  
+  const passwordStrength = getPasswordStrength(signupPassword);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setLoginError(null);
 
     try {
       const response = await api.post("/auth/login", { email: loginEmail, password: loginPassword });
@@ -47,9 +71,11 @@ const Login = () => {
       toast({ title: "Welcome back!", description: "You have successfully logged in." });
       navigate("/dashboard");
     } catch (err) {
+      const errorMessage = getErrorMessage(err, "Login failed. Please check your credentials and try again.");
+      setLoginError(errorMessage);
       toast({
-        title: "Error",
-        description: getErrorMessage(err, "Login failed."),
+        title: "Login Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -60,6 +86,7 @@ const Login = () => {
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setSignupError(null);
 
     try {
       await api.post("/auth/signup", {
@@ -67,11 +94,14 @@ const Login = () => {
         email: signupEmail,
         password: signupPassword,
       });
+      setSignupError(null);
       toast({ title: "Account created!", description: "You can now log in with your new account." });
     } catch (err) {
+      const errorMessage = getErrorMessage(err, "Signup failed. Please try again.");
+      setSignupError(errorMessage);
       toast({
-        title: "Error",
-        description: getErrorMessage(err, "Signup failed."),
+        title: "Signup Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -101,6 +131,12 @@ const Login = () => {
               
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
+                  {loginError && (
+                    <Alert variant="destructive" className="mb-4">
+                      <XCircle className="h-4 w-4" />
+                      <AlertDescription className="ml-2">{loginError}</AlertDescription>
+                    </Alert>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <div className="relative">
@@ -122,13 +158,21 @@ const Login = () => {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="password"
-                        type="password"
+                        type={showLoginPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        className="pl-10"
+                        className="pl-10 pr-10"
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
@@ -139,6 +183,12 @@ const Login = () => {
               
               <TabsContent value="signup">
                 <form onSubmit={handleSignup} className="space-y-4">
+                  {signupError && (
+                    <Alert variant="destructive" className="mb-4">
+                      <XCircle className="h-4 w-4" />
+                      <AlertDescription className="ml-2">{signupError}</AlertDescription>
+                    </Alert>
+                  )}
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
                     <div className="relative">
@@ -175,14 +225,44 @@ const Login = () => {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="signup-password"
-                        type="password"
+                        type={showSignupPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        className="pl-10"
+                        className="pl-10 pr-10"
                         value={signupPassword}
                         onChange={(e) => setSignupPassword(e.target.value)}
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignupPassword(!showSignupPassword)}
+                        className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+                        tabIndex={-1}
+                      >
+                        {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
+                    {/* Password Strength Indicator */}
+                    {signupPassword && (
+                      <div className="space-y-1">
+                        <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${passwordStrength.color} ${passwordStrength.width} transition-all duration-300`}
+                          />
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className={`text-xs ${
+                            passwordStrength.level === "weak" ? "text-red-500" : 
+                            passwordStrength.level === "medium" ? "text-yellow-600" : 
+                            "text-green-600"
+                          }`}>
+                            {passwordStrength.label} password
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Min. 6 characters
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Creating account..." : "Create Account"}

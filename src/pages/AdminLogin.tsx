@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { GraduationCap, Mail, Lock, Shield, Eye, EyeOff } from "lucide-react";
+import { GraduationCap, Mail, Lock, Shield, Eye, EyeOff, XCircle, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function getErrorMessage(err: unknown, fallback: string) {
   if (err instanceof Error && typeof err.message === "string" && err.message) return err.message;
@@ -30,6 +31,8 @@ const AdminLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<"auth" | "access" | "general">("general");
   const navigate = useNavigate();
   const { toast } = useToast();
   const { setSession } = useAuth();
@@ -37,20 +40,47 @@ const AdminLogin = () => {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
     try {
       const response = await api.post("/auth/login", { email, password });
       if (response.data?.user?.role !== "admin") {
-        throw new Error("You are not authorized to access the admin panel.");
+        setError("Access Denied: Only administrators can access this portal. If you believe you should have admin access, please contact your system administrator.");
+        setErrorType("access");
+        toast({
+          title: "Access Denied",
+          description: "This account does not have administrator privileges.",
+          variant: "destructive",
+        });
+        return;
       }
       setSession(response.data);
       toast({ title: "Welcome, Admin!", description: "You have successfully logged in." });
       navigate("/admin");
     } catch (err) {
+      const errorMessage = getErrorMessage(err, "Login failed. Please check your credentials.");
+      
+      // Determine error type for better UI feedback
+      if (errorMessage.toLowerCase().includes("password")) {
+        setErrorType("auth");
+        setError(`Incorrect Password: ${errorMessage}`);
+      } else if (errorMessage.toLowerCase().includes("not found") || errorMessage.toLowerCase().includes("no account")) {
+        setErrorType("auth");
+        setError(`Account Not Found: ${errorMessage}`);
+      } else if (errorMessage.toLowerCase().includes("blocked") || errorMessage.toLowerCase().includes("deactivated")) {
+        setErrorType("access");
+        setError(`Account Blocked: ${errorMessage}`);
+      } else if (errorMessage.toLowerCase().includes("pending") || errorMessage.toLowerCase().includes("awaiting")) {
+        setErrorType("access");
+        setError(`Account Pending: ${errorMessage}`);
+      } else {
+        setErrorType("general");
+        setError(errorMessage);
+      }
+      
       toast({
-        title: "Error",
-        description:
-          getErrorMessage(err, "Login failed."),
+        title: "Login Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -78,6 +108,21 @@ const AdminLogin = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
+              {error && (
+                <Alert variant="destructive" className="mb-4">
+                  {errorType === "access" ? (
+                    <AlertTriangle className="h-4 w-4" />
+                  ) : (
+                    <XCircle className="h-4 w-4" />
+                  )}
+                  <AlertTitle className="ml-2">
+                    {errorType === "access" ? "Access Denied" : errorType === "auth" ? "Authentication Error" : "Error"}
+                  </AlertTitle>
+                  <AlertDescription className="ml-2 mt-1">
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="email">Admin Email</Label>
                 <div className="relative">

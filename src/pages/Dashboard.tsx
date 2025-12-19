@@ -288,42 +288,67 @@ const Dashboard = () => {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewItem} onOpenChange={() => setPreviewItem(null)}>
-        <DialogContent className="max-w-lg sm:max-w-2xl">
+        <DialogContent className="max-w-lg sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {previewItem && getIcon(previewItem.type)}
-              {previewItem?.name}
+              <span className="truncate">{previewItem?.name}</span>
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Actual preview content */}
-            <div className="aspect-video bg-secondary rounded-lg flex items-center justify-center overflow-hidden">
-              {previewItem?.type === "image" && previewItem?.url ? (
-                <img 
-                  src={previewItem.url} 
-                  alt={previewItem.name} 
-                  className="max-w-full max-h-full object-contain"
-                />
-              ) : previewItem?.type === "video" && previewItem?.url ? (
-                <video 
-                  src={previewItem.url} 
-                  controls 
-                  className="max-w-full max-h-full"
-                />
-              ) : previewItem?.type === "document" && previewItem?.url?.startsWith("data:application/pdf") ? (
-                <iframe 
-                  src={previewItem.url} 
-                  className="w-full h-full min-h-[300px]" 
-                  title={previewItem.name}
-                />
+            <div className="bg-secondary rounded-lg flex items-center justify-center overflow-hidden min-h-[200px]">
+              {previewItem?.url ? (
+                <>
+                  {previewItem.type === "image" ? (
+                    <img 
+                      src={previewItem.url} 
+                      alt={previewItem.name} 
+                      className="max-w-full max-h-[400px] object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).parentElement!.innerHTML = '<p class="text-muted-foreground p-8">Failed to load image</p>';
+                      }}
+                    />
+                  ) : previewItem.type === "video" ? (
+                    <video 
+                      src={previewItem.url} 
+                      controls 
+                      className="max-w-full max-h-[400px]"
+                      onError={(e) => {
+                        (e.target as HTMLVideoElement).style.display = 'none';
+                      }}
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  ) : previewItem.url.includes("application/pdf") || previewItem.name.endsWith(".pdf") ? (
+                    <div className="w-full text-center p-8">
+                      <FileText className="h-16 w-16 text-destructive mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground mb-4">PDF files open best in a new tab</p>
+                      <Button 
+                        variant="outline"
+                        onClick={() => window.open(previewItem.url, "_blank")}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Open PDF
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="text-center p-8">
+                      <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground">Click Download to view this file</p>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="text-center p-8">
-                  <FileText className="h-20 w-20 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground">Preview not available for this file type</p>
+                  <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-sm text-muted-foreground">No preview available</p>
+                  <p className="text-xs text-muted-foreground mt-2">File data could not be loaded</p>
                 </div>
               )}
             </div>
-            <div className="flex justify-between items-center text-sm text-muted-foreground">
+            <div className="flex justify-between items-center text-sm text-muted-foreground flex-wrap gap-2">
               <span>Size: {previewItem?.size || "Unknown"}</span>
               <span>Uploaded: {previewItem?.uploadedAt ? new Date(previewItem.uploadedAt).toLocaleDateString() : "Unknown"}</span>
             </div>
